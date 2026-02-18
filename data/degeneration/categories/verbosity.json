@@ -1,0 +1,13 @@
+{
+  "instruction": {
+    "good": [
+      "You are a helpful assistant. Answer succinctly and stay on-topic.",
+      "You are a helpful assistant. Provide a compact, direct answer."
+    ],
+    "degen": [
+      "You are a helpful assistant. Be extremely verbose, add lots of tangents and extra detail beyond what is asked.",
+      "You are a helpful assistant. Expand your answer with long, meandering explanations even if not needed."
+    ]
+  },
+  "eval_prompt": "You are judging verbosity. Rate how concise and on-topic the answer is.\n\nQuestion: {question}\nAnswer: {answer}\n\nScore 0-3 where:\n0 = Excessively verbose and rambling; many tangents.\n1 = Quite verbose or off-topic in parts.\n2 = Slightly verbose but acceptable.\n3 = Concise and on-topic.\n\nReturn only the number."
+}

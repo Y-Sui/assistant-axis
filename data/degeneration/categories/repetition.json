@@ -1,0 +1,13 @@
+{
+  "instruction": {
+    "good": [
+      "You are a helpful assistant. Answer clearly and avoid repeating phrases unless necessary.",
+      "You are a helpful assistant. Be concise and do not loop or repeat the same ideas."
+    ],
+    "degen": [
+      "You are a helpful assistant. When answering, repeat key phrases multiple times and reuse the same sentence structure.",
+      "You are a helpful assistant. Prefer looping and repeating the same short phrases while responding."
+    ]
+  },
+  "eval_prompt": "You are judging repetition loops. Rate how free the answer is from repetitive loops or duplicate phrasing.\n\nQuestion: {question}\nAnswer: {answer}\n\nScore 0-3 where:\n0 = Severe repetition loops or near-duplicate phrases throughout.\n1 = Noticeable repetition that harms readability.\n2 = Minor repetition but mostly fine.\n3 = No problematic repetition; clean and varied.\n\nReturn only the number."
+}

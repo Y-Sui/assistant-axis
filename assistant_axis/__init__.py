@@ -33,8 +33,10 @@ from .axis import (
 from .generation import (
     generate_response,
     format_conversation,
+    supports_system_prompt,
     VLLMGenerator,
     RoleResponseGenerator,
+    DegenerationResponseGenerator,
 )
 from .steering import (
     ActivationSteering,
@@ -67,8 +69,10 @@ __all__ = [
     # Generation
     "generate_response",
     "format_conversation",
+    "supports_system_prompt",
     "VLLMGenerator",
     "RoleResponseGenerator",
+    "DegenerationResponseGenerator",
     # Steering
     "ActivationSteering",
     "create_feature_ablation_steerer",

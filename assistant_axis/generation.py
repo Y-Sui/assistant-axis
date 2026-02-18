@@ -81,6 +81,30 @@ def generate_response(
     return response
 
 
+def supports_system_prompt(tokenizer) -> bool:
+    """
+    Check whether a tokenizer's chat template supports system prompts.
+
+    Returns:
+        True if system prompts are supported, False otherwise.
+    """
+    test_message = "__SYSTEM_TEST__"
+    test_conversation = [
+        {"role": "system", "content": test_message},
+        {"role": "user", "content": "hello"},
+    ]
+
+    try:
+        output = tokenizer.apply_chat_template(
+            test_conversation,
+            tokenize=False,
+            add_generation_prompt=False,
+        )
+        return test_message in output
+    except Exception:
+        return False
+
+
 def format_conversation(
     instruction: Optional[str],
     question: str,
@@ -97,22 +121,7 @@ def format_conversation(
     Returns:
         List of message dicts for the conversation
     """
-    # Check system prompt support by testing the chat template
-    test_message = "__SYSTEM_TEST__"
-    test_conversation = [
-        {"role": "system", "content": test_message},
-        {"role": "user", "content": "hello"},
-    ]
-
-    try:
-        output = tokenizer.apply_chat_template(
-            test_conversation,
-            tokenize=False,
-            add_generation_prompt=False,
-        )
-        supports_system = test_message in output
-    except Exception:
-        supports_system = False
+    supports_system = supports_system_prompt(tokenizer)
 
     if supports_system:
         messages = []
@@ -183,6 +192,10 @@ class VLLMGenerator:
         from vllm import LLM, SamplingParams
 
         logger.info(f"Loading vLLM model: {self.model_name}")
+
+        # vLLM expects an int for tensor_parallel_size; default to 1 if unset.
+        if self.tensor_parallel_size is None:
+            self.tensor_parallel_size = 1
 
         self.llm = LLM(
             model=self.model_name,
@@ -498,3 +511,169 @@ class RoleResponseGenerator:
                     self.save_responses(role_name, responses)
             except Exception as e:
                 logger.error(f"Error processing {role_name}: {e}")
+
+
+class DegenerationResponseGenerator:
+    """
+    Generator for degeneration-focused responses.
+
+    Produces paired datasets:
+      - good: higher-quality responses
+      - degen: responses biased toward degeneration
+    """
+
+    def __init__(
+        self,
+        model_name: str,
+        categories_dir: str,
+        output_dir: str,
+        questions_file: str,
+        max_model_len: int = 2048,
+        tensor_parallel_size: Optional[int] = None,
+        gpu_memory_utilization: float = 0.9,
+        question_count: int = 240,
+        prompt_indices: Optional[List[int]] = None,
+        short_name: Optional[str] = None,
+        good_sampling: Optional[Dict[str, float]] = None,
+        degen_sampling: Optional[Dict[str, float]] = None,
+    ):
+        self.model_name = model_name
+        self.categories_dir = Path(categories_dir)
+        self.output_dir = Path(output_dir)
+        self.questions_file = questions_file
+        self.question_count = question_count
+        self.prompt_indices = prompt_indices if prompt_indices is not None else list(range(3))
+
+        if short_name is None:
+            from .models import get_config
+            config = get_config(model_name)
+            self.short_name = config["short_name"]
+        else:
+            self.short_name = short_name
+
+        good_sampling = good_sampling or {}
+        degen_sampling = degen_sampling or {}
+
+        self.good_generator = VLLMGenerator(
+            model_name=model_name,
+            max_model_len=max_model_len,
+            tensor_parallel_size=tensor_parallel_size,
+            gpu_memory_utilization=gpu_memory_utilization,
+            temperature=float(good_sampling.get("temperature", 0.7)),
+            max_tokens=int(good_sampling.get("max_tokens", 256)),
+            top_p=float(good_sampling.get("top_p", 0.9)),
+        )
+
+        self.degen_generator = VLLMGenerator(
+            model_name=model_name,
+            max_model_len=max_model_len,
+            tensor_parallel_size=tensor_parallel_size,
+            gpu_memory_utilization=gpu_memory_utilization,
+            temperature=float(degen_sampling.get("temperature", 1.2)),
+            max_tokens=int(degen_sampling.get("max_tokens", 512)),
+            top_p=float(degen_sampling.get("top_p", 0.95)),
+        )
+
+        self.questions = None
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+
+        logger.info(f"Initialized DegenerationResponseGenerator with model: {model_name}")
+        logger.info(f"Output directory: {self.output_dir}")
+
+    def load_questions(self) -> List[str]:
+        if self.questions is not None:
+            return self.questions
+
+        import jsonlines
+
+        questions = []
+        with jsonlines.open(self.questions_file, 'r') as reader:
+            for entry in reader:
+                questions.append(entry['question'])
+
+        self.questions = questions[:self.question_count]
+        logger.info(f"Loaded {len(self.questions)} questions")
+        return self.questions
+
+    def load_category(self, category_file: Path) -> dict:
+        with open(category_file, 'r') as f:
+            return json.load(f)
+
+    def format_instruction(self, instruction: str) -> str:
+        return instruction.replace("{model_name}", self.short_name)
+
+    def _generate_for_label(self, label: str, instructions: List[str], questions: List[str]):
+        generator = self.good_generator if label == "good" else self.degen_generator
+        return generator.generate_for_role(
+            instructions=instructions,
+            questions=questions,
+            prompt_indices=self.prompt_indices,
+        )
+
+    def generate_category_responses(self, category_name: str, category_data: dict, label: str) -> List[dict]:
+        inst = category_data.get("instruction", {})
+        instructions = inst.get(label, [])
+        if not instructions:
+            return []
+
+        questions = self.load_questions()
+
+        formatted_instructions = [self.format_instruction(i) for i in instructions]
+
+        logger.info(f"Processing category '{category_name}' label '{label}' with {len(questions)} questions")
+
+        results = self._generate_for_label(label, formatted_instructions, questions)
+
+        for r in results:
+            r["label"] = label
+            r["category"] = category_name
+
+        return results
+
+    def save_responses(self, category_name: str, responses: List[dict]):
+        import jsonlines
+
+        output_file = self.output_dir / f"{category_name}.jsonl"
+        with jsonlines.open(output_file, mode='w') as writer:
+            for response in responses:
+                writer.write(response)
+        logger.info(f"Saved {len(responses)} responses to {output_file}")
+
+    def should_skip_category(self, category_name: str) -> bool:
+        output_file = self.output_dir / f"{category_name}.jsonl"
+        return output_file.exists()
+
+    def process_all_categories(self, skip_existing: bool = True, categories: Optional[List[str]] = None):
+        self.good_generator.load()
+        self.degen_generator.load()
+        self.load_questions()
+
+        category_files = {}
+        for file_path in sorted(self.categories_dir.glob("*.json")):
+            category_name = file_path.stem
+            try:
+                category_data = self.load_category(file_path)
+                if "instruction" not in category_data:
+                    logger.warning(f"Skipping {category_name}: missing 'instruction' field")
+                    continue
+                category_files[category_name] = category_data
+            except Exception as e:
+                logger.error(f"Error loading {file_path}: {e}")
+
+        if categories:
+            category_files = {k: v for k, v in category_files.items() if k in categories}
+
+        if skip_existing:
+            category_files = {k: v for k, v in category_files.items() if not self.should_skip_category(k)}
+
+        logger.info(f"Processing {len(category_files)} categories")
+
+        for category_name, category_data in tqdm(category_files.items(), desc="Processing categories"):
+            try:
+                responses = []
+                for label in ("good", "degen"):
+                    responses.extend(self.generate_category_responses(category_name, category_data, label))
+                if responses:
+                    self.save_responses(category_name, responses)
+            except Exception as e:
+                logger.error(f"Error processing {category_name}: {e}")

@@ -151,6 +151,14 @@ with build_capping_steerer(model, capping_config, config["capping_experiment"]):
     response = model.generate(...)
 ```
 
+## Degeneration Axes (Repetition, Verbosity, Refusal, Hallucination, Contradiction)
+
+This repo also supports computing **degeneration axes** for multiple failure modes and
+mitigating them via activation steering/capping. The pipeline mirrors the Assistant Axis
+and lives in `pipeline/degeneration/`.
+
+See `pipeline/degeneration/README.md` for details.
+
 ## API Reference
 
 ### Models
