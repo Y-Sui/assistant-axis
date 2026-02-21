@@ -25,6 +25,7 @@ QCOUNT=${QCOUNT:-50}
 BATCH_SIZE=${BATCH_SIZE:-4}
 JUDGE_MODEL=${JUDGE_MODEL:-"gpt-4.1-mini"}
 GPU_MEM_UTIL=${GPU_MEM_UTIL:-0.6}
+TP_SIZE=${TP_SIZE:-4}
 CATEGORIES_DIR="$ROOT_DIR/data/degeneration/categories"
 QUESTIONS_FILE="$ROOT_DIR/data/extraction_questions.jsonl"
 
@@ -44,7 +45,7 @@ echo "--- Step 1: Generate responses ---"
 uv run pipeline/degeneration/1_generate.py \
   --model "$MODEL" \
   --questions_file "$QUESTIONS_FILE" \
-  --tensor_parallel_size 1 \
+  --tensor_parallel_size "$TP_SIZE" \
   --gpu_memory_utilization "$GPU_MEM_UTIL" \
   --output_dir "$RESP_DIR" \
   --question_count "$QCOUNT" \
@@ -57,7 +58,8 @@ uv run pipeline/2_activations.py \
   --model "$MODEL" \
   --responses_dir "$RESP_DIR" \
   --output_dir "$ACT_DIR" \
-  --batch_size "$BATCH_SIZE"
+  --batch_size "$BATCH_SIZE" \
+  --tensor_parallel_size "$TP_SIZE"
 
 # Step 3: Judge responses
 echo "--- Step 3: Judge responses ---"

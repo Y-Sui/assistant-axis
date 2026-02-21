@@ -19,6 +19,7 @@ QCOUNT=${QCOUNT:-20}
 BATCH_SIZE=${BATCH_SIZE:-4}
 JUDGE_MODEL=${JUDGE_MODEL:-"gpt-4.1-mini"}
 GPU_MEM_UTIL=${GPU_MEM_UTIL:-0.6}
+TP_SIZE=${TP_SIZE:-4}
 
 RESP_DIR="$OUT_DIR/responses"
 ACT_DIR="$OUT_DIR/activations"
@@ -32,7 +33,7 @@ echo "Output: $OUT_DIR"
 # 1) Generate paired responses (good vs degen)
 uv run pipeline/degeneration/1_generate.py \
   --model "$MODEL" \
-  --tensor_parallel_size 1 \
+  --tensor_parallel_size "$TP_SIZE" \
   --gpu_memory_utilization "$GPU_MEM_UTIL" \
   --output_dir "$RESP_DIR" \
   --question_count "$QCOUNT" \
@@ -44,7 +45,8 @@ uv run pipeline/2_activations.py \
   --model "$MODEL" \
   --responses_dir "$RESP_DIR" \
   --output_dir "$ACT_DIR" \
-  --batch_size "$BATCH_SIZE"
+  --batch_size "$BATCH_SIZE" \
+  --tensor_parallel_size "$TP_SIZE"
 
 # 3) Judge scoring
 if [[ -z "${OPENAI_API_KEY:-}" ]]; then
