@@ -3,7 +3,7 @@
 Compute degeneration axes from per-category vectors.
 
 For each category:
-  axis = mean(good) - mean(degen)
+  axis = clean - degen  (mirrors: default - role)
 
 Also saves an aggregate axis (mean across categories).
 """
@@ -41,15 +41,19 @@ def main():
     for vec_file in tqdm(vector_files, desc="Loading vectors"):
         data = load_vector(vec_file)
         category = data.get("category", vec_file.stem)
-        good = data.get("good")
+        clean = data.get("clean")
         degen = data.get("degen")
-        if good is None or degen is None:
-            print(f"Warning: missing good/degen vectors for {category}")
+        if clean is None or degen is None:
+            print(f"Warning: missing clean/degen vectors for {category}")
             continue
 
-        axis = good - degen
+        # axis = clean - degen  (mirrors: default - role)
+        axis = clean - degen
         axes[category] = axis
         axis_list.append(axis)
+
+        norms = axis.norm(dim=1)
+        print(f"  {category}: mean_norm={norms.mean():.4f}  max_norm={norms.max():.4f} (layer {norms.argmax().item()})")
 
     if not axes:
         print("Error: no axes computed")

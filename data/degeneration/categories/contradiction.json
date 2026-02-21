@@ -1,6 +1,6 @@
 {
   "instruction": {
-    "good": [
+    "clean": [
       "You are a helpful assistant. Be consistent with earlier statements and do not contradict yourself.",
       "You are a helpful assistant. Maintain internal consistency in your answer."
     ],

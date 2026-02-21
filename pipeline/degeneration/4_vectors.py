@@ -50,8 +50,8 @@ def main():
     parser.add_argument("--activations_dir", type=str, required=True, help="Directory with activation .pt files")
     parser.add_argument("--scores_dir", type=str, required=True, help="Directory with score JSON files")
     parser.add_argument("--output_dir", type=str, required=True, help="Output directory for vector .pt files")
-    parser.add_argument("--good_min_score", type=int, default=3, help="Minimum score for good samples")
-    parser.add_argument("--good_max_score", type=int, default=3, help="Maximum score for good samples")
+    parser.add_argument("--clean_min_score", type=int, default=3, help="Minimum score for clean samples")
+    parser.add_argument("--clean_max_score", type=int, default=3, help="Maximum score for clean samples")
     parser.add_argument("--degen_min_score", type=int, default=0, help="Minimum score for degen samples")
     parser.add_argument("--degen_max_score", type=int, default=1, help="Maximum score for degen samples")
     parser.add_argument("--min_count", type=int, default=50, help="Minimum samples required per label")
@@ -94,12 +94,12 @@ def main():
         scores = load_scores(scores_file)
 
         try:
-            good_vec, good_count = compute_mean_vector(
+            clean_vec, clean_count = compute_mean_vector(
                 activations,
                 scores,
-                label="good",
-                min_score=args.good_min_score,
-                max_score=args.good_max_score,
+                label="clean",
+                min_score=args.clean_min_score,
+                max_score=args.clean_max_score,
                 min_count=args.min_count,
             )
             degen_vec, degen_count = compute_mean_vector(
@@ -113,12 +113,12 @@ def main():
 
             save_data = {
                 "category": category,
-                "good": good_vec,
+                "clean": clean_vec,
                 "degen": degen_vec,
-                "good_count": good_count,
+                "clean_count": clean_count,
                 "degen_count": degen_count,
                 "thresholds": {
-                    "good": [args.good_min_score, args.good_max_score],
+                    "clean": [args.clean_min_score, args.clean_max_score],
                     "degen": [args.degen_min_score, args.degen_max_score],
                 },
             }

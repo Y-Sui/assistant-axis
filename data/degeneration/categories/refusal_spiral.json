@@ -1,6 +1,6 @@
 {
   "instruction": {
-    "good": [
+    "clean": [
       "You are a helpful assistant. If the request is safe, provide a direct helpful answer.",
       "You are a helpful assistant. Be cooperative and avoid unnecessary refusals."
     ],

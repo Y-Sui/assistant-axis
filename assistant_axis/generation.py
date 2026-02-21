@@ -216,12 +216,14 @@ class VLLMGenerator:
     def generate_batch(
         self,
         conversations: List[List[Dict[str, str]]],
+        sampling_params=None,
     ) -> List[str]:
         """
         Generate responses for a batch of conversations.
 
         Args:
             conversations: List of conversations (each is a list of message dicts)
+            sampling_params: Optional vLLM SamplingParams override
 
         Returns:
             List of generated response texts
@@ -243,8 +245,9 @@ class VLLMGenerator:
             )
             prompts.append(prompt)
 
+        params = sampling_params if sampling_params is not None else self.sampling_params
         logger.info(f"Running batch inference for {len(prompts)} prompts...")
-        outputs = self.llm.generate(prompts, self.sampling_params)
+        outputs = self.llm.generate(prompts, params)
 
         responses = [output.outputs[0].text for output in outputs]
         return responses
@@ -254,6 +257,7 @@ class VLLMGenerator:
         instructions: List[str],
         questions: List[str],
         prompt_indices: Optional[List[int]] = None,
+        sampling_params=None,
     ) -> List[Dict]:
         """
         Generate responses for a role across all instruction variants and questions.
@@ -296,7 +300,7 @@ class VLLMGenerator:
             return []
 
         # Generate
-        responses = self.generate_batch(all_conversations)
+        responses = self.generate_batch(all_conversations, sampling_params=sampling_params)
 
         # Build results
         results = []
@@ -518,8 +522,10 @@ class DegenerationResponseGenerator:
     Generator for degeneration-focused responses.
 
     Produces paired datasets:
-      - good: higher-quality responses
+      - clean: higher-quality responses
       - degen: responses biased toward degeneration
+
+    axis = mean(clean) - mean(degen)  (mirrors: default - role)
     """
 
     def __init__(
@@ -534,7 +540,7 @@ class DegenerationResponseGenerator:
         question_count: int = 240,
         prompt_indices: Optional[List[int]] = None,
         short_name: Optional[str] = None,
-        good_sampling: Optional[Dict[str, float]] = None,
+        clean_sampling: Optional[Dict[str, float]] = None,
         degen_sampling: Optional[Dict[str, float]] = None,
     ):
         self.model_name = model_name
@@ -542,7 +548,7 @@ class DegenerationResponseGenerator:
         self.output_dir = Path(output_dir)
         self.questions_file = questions_file
         self.question_count = question_count
-        self.prompt_indices = prompt_indices if prompt_indices is not None else list(range(3))
+        self.prompt_indices = prompt_indices if prompt_indices is not None else list(range(2))
 
         if short_name is None:
             from .models import get_config
@@ -551,34 +557,33 @@ class DegenerationResponseGenerator:
         else:
             self.short_name = short_name
 
-        good_sampling = good_sampling or {}
+        clean_sampling = clean_sampling or {}
         degen_sampling = degen_sampling or {}
 
-        self.good_generator = VLLMGenerator(
+        self.generator = VLLMGenerator(
             model_name=model_name,
             max_model_len=max_model_len,
             tensor_parallel_size=tensor_parallel_size,
             gpu_memory_utilization=gpu_memory_utilization,
-            temperature=float(good_sampling.get("temperature", 0.7)),
-            max_tokens=int(good_sampling.get("max_tokens", 256)),
-            top_p=float(good_sampling.get("top_p", 0.9)),
+            temperature=float(clean_sampling.get("temperature", 0.7)),
+            max_tokens=int(clean_sampling.get("max_tokens", 256)),
+            top_p=float(clean_sampling.get("top_p", 0.9)),
         )
 
-        self.degen_generator = VLLMGenerator(
-            model_name=model_name,
-            max_model_len=max_model_len,
-            tensor_parallel_size=tensor_parallel_size,
-            gpu_memory_utilization=gpu_memory_utilization,
-            temperature=float(degen_sampling.get("temperature", 1.2)),
-            max_tokens=int(degen_sampling.get("max_tokens", 512)),
-            top_p=float(degen_sampling.get("top_p", 0.95)),
-        )
+        self._degen_sampling_kwargs = {
+            "temperature": float(degen_sampling.get("temperature", 1.2)),
+            "max_tokens": int(degen_sampling.get("max_tokens", 512)),
+            "top_p": float(degen_sampling.get("top_p", 0.95)),
+        }
+        self._degen_params = None
 
         self.questions = None
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"Initialized DegenerationResponseGenerator with model: {model_name}")
-        logger.info(f"Output directory: {self.output_dir}")
+    def _ensure_degen_params(self):
+        if self._degen_params is None:
+            from vllm import SamplingParams
+            self._degen_params = SamplingParams(**self._degen_sampling_kwargs)
 
     def load_questions(self) -> List[str]:
         if self.questions is not None:
@@ -592,7 +597,6 @@ class DegenerationResponseGenerator:
                 questions.append(entry['question'])
 
         self.questions = questions[:self.question_count]
-        logger.info(f"Loaded {len(self.questions)} questions")
         return self.questions
 
     def load_category(self, category_file: Path) -> dict:
@@ -602,14 +606,6 @@ class DegenerationResponseGenerator:
     def format_instruction(self, instruction: str) -> str:
         return instruction.replace("{model_name}", self.short_name)
 
-    def _generate_for_label(self, label: str, instructions: List[str], questions: List[str]):
-        generator = self.good_generator if label == "good" else self.degen_generator
-        return generator.generate_for_role(
-            instructions=instructions,
-            questions=questions,
-            prompt_indices=self.prompt_indices,
-        )
-
     def generate_category_responses(self, category_name: str, category_data: dict, label: str) -> List[dict]:
         inst = category_data.get("instruction", {})
         instructions = inst.get(label, [])
@@ -617,12 +613,15 @@ class DegenerationResponseGenerator:
             return []
 
         questions = self.load_questions()
-
         formatted_instructions = [self.format_instruction(i) for i in instructions]
+        sampling_params = self._degen_params if label == "degen" else None
 
-        logger.info(f"Processing category '{category_name}' label '{label}' with {len(questions)} questions")
-
-        results = self._generate_for_label(label, formatted_instructions, questions)
+        results = self.generator.generate_for_role(
+            instructions=formatted_instructions,
+            questions=questions,
+            prompt_indices=self.prompt_indices,
+            sampling_params=sampling_params,
+        )
 
         for r in results:
             r["label"] = label
@@ -637,15 +636,14 @@ class DegenerationResponseGenerator:
         with jsonlines.open(output_file, mode='w') as writer:
             for response in responses:
                 writer.write(response)
-        logger.info(f"Saved {len(responses)} responses to {output_file}")
 
     def should_skip_category(self, category_name: str) -> bool:
         output_file = self.output_dir / f"{category_name}.jsonl"
         return output_file.exists()
 
     def process_all_categories(self, skip_existing: bool = True, categories: Optional[List[str]] = None):
-        self.good_generator.load()
-        self.degen_generator.load()
+        self.generator.load()
+        self._ensure_degen_params()
         self.load_questions()
 
         category_files = {}
@@ -654,7 +652,6 @@ class DegenerationResponseGenerator:
             try:
                 category_data = self.load_category(file_path)
                 if "instruction" not in category_data:
-                    logger.warning(f"Skipping {category_name}: missing 'instruction' field")
                     continue
                 category_files[category_name] = category_data
             except Exception as e:
@@ -666,12 +663,10 @@ class DegenerationResponseGenerator:
         if skip_existing:
             category_files = {k: v for k, v in category_files.items() if not self.should_skip_category(k)}
 
-        logger.info(f"Processing {len(category_files)} categories")
-
         for category_name, category_data in tqdm(category_files.items(), desc="Processing categories"):
             try:
                 responses = []
-                for label in ("good", "degen"):
+                for label in ("clean", "degen"):
                     responses.extend(self.generate_category_responses(category_name, category_data, label))
                 if responses:
                     self.save_responses(category_name, responses)

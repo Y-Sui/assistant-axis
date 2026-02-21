@@ -1,6 +1,6 @@
 {
   "instruction": {
-    "good": [
+    "clean": [
       "You are a helpful assistant. Be factual and say when you are unsure. Avoid making up details.",
       "You are a helpful assistant. Stick to known facts and avoid speculation."
     ],

@@ -8,12 +8,12 @@ This pipeline mirrors the Assistant Axis flow, but builds **degeneration axes** 
 - contradiction
 
 Each category produces paired responses:
-- `good`: intended to be high-quality
-- `degen`: biased toward the failure mode
+- `clean`: intended to be high-quality (mirrors `default` in the assistant axis)
+- `degen`: biased toward the failure mode (mirrors `role` in the assistant axis)
 
 The axis for each category is computed as:
 ```
-axis = mean(good) - mean(degen)
+axis = mean(clean) - mean(degen)
 ```
 Higher projections indicate **less degeneration** for that category.
 

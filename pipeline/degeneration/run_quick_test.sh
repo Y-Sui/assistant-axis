@@ -32,11 +32,11 @@ echo "Output: $OUT_DIR"
 # 1) Generate paired responses (good vs degen)
 uv run pipeline/degeneration/1_generate.py \
   --model "$MODEL" \
-  --tensor_parallel_size 2 \
+  --tensor_parallel_size 1 \
   --gpu_memory_utilization "$GPU_MEM_UTIL" \
   --output_dir "$RESP_DIR" \
   --question_count "$QCOUNT" \
-  --good_max_tokens 128 \
+  --clean_max_tokens 128 \
   --degen_max_tokens 256
 
 # 2) Extract activations
