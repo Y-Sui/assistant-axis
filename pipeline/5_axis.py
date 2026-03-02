@@ -1,96 +1,57 @@
 #!/usr/bin/env python3
-"""
-Compute the assistant axis from per-role vectors.
+"""Step 5: compute hallucination axis from clean/degenerated vectors."""
 
-Formula: axis = mean(default_vectors) - mean(pos_3_vectors across roles)
+from __future__ import annotations
 
-The axis points FROM role-playing TOWARD default assistant behavior.
-
-Usage:
-    uv run scripts/5_axis.py \
-        --vectors_dir outputs/gemma-2-27b/vectors \
-        --output outputs/gemma-2-27b/axis.pt
-"""
-
-import argparse
 import sys
 from pathlib import Path
 
-import torch
-from tqdm import tqdm
-
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import argparse
+from datetime import datetime, timezone
 
-def load_vector(vector_file: Path) -> dict:
-    """Load vector data from .pt file."""
-    return torch.load(vector_file, map_location="cpu", weights_only=False)
+import torch
+
+
+def load_vectors(path: Path) -> dict:
+    return torch.load(path, map_location="cpu", weights_only=False)
+
+
+def build_axis(vectors: dict, model_name: str = "", vectors_file: str = "") -> dict:
+    axis = vectors["clean_mean"] - vectors["degen_mean"]
+    metadata = {
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "model": model_name,
+        "vectors_file": vectors_file,
+        "clean_count": int(vectors["clean_count"]),
+        "degen_count": int(vectors["degen_count"]),
+        "ignored_count": int(vectors.get("ignored_count", 0)),
+        "clean_max": int(vectors["clean_max"]),
+        "degen_min": int(vectors["degen_min"]),
+    }
+    return {"axis": axis, "metadata": metadata}
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Compute assistant axis from vectors")
-    parser.add_argument("--vectors_dir", type=str, required=True, help="Directory with vector .pt files")
-    parser.add_argument("--output", type=str, required=True, help="Output axis.pt file path")
+    parser = argparse.ArgumentParser(description="Compute hallucination axis")
+    parser.add_argument("--vectors_file", required=True)
+    parser.add_argument("--output", required=True)
+    parser.add_argument("--model", default="")
     args = parser.parse_args()
 
-    vectors_dir = Path(args.vectors_dir)
-    output_path = Path(args.output)
+    vectors_file = Path(args.vectors_file)
+    vectors = load_vectors(vectors_file)
+    axis_data = build_axis(vectors, model_name=args.model, vectors_file=str(vectors_file))
 
-    # Create output directory
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_file = Path(args.output)
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(axis_data, output_file)
 
-    # Load all vectors
-    vector_files = sorted(vectors_dir.glob("*.pt"))
-    print(f"Found {len(vector_files)} vector files")
-
-    # Separate default and role vectors
-    default_vectors = []
-    role_vectors = []
-
-    for vec_file in tqdm(vector_files, desc="Loading vectors"):
-        data = load_vector(vec_file)
-        vector = data["vector"]
-        vector_type = data.get("type", "unknown")
-        role = data.get("role", vec_file.stem)
-
-        if "default" in role or vector_type == "mean":
-            default_vectors.append(vector)
-            print(f"  {role}: default/mean vector")
-        else:
-            role_vectors.append(vector)
-
-    print(f"\nLoaded {len(default_vectors)} default vectors, {len(role_vectors)} role vectors")
-
-    if not default_vectors:
-        print("Error: No default vectors found")
-        sys.exit(1)
-
-    if not role_vectors:
-        print("Error: No role vectors found")
-        sys.exit(1)
-
-    # Compute means
-    default_stacked = torch.stack(default_vectors)  # (n_default, n_layers, hidden_dim)
-    role_stacked = torch.stack(role_vectors)  # (n_roles, n_layers, hidden_dim)
-
-    default_mean = default_stacked.mean(dim=0)  # (n_layers, hidden_dim)
-    role_mean = role_stacked.mean(dim=0)  # (n_layers, hidden_dim)
-
-    # Compute axis: points from role-playing toward default
-    axis = default_mean - role_mean
-
-    print(f"\nAxis shape: {axis.shape}")
-    print(f"Axis norms per layer (first 10):")
-    norms = axis.norm(dim=1)
-    for i, norm in enumerate(norms[:10]):
-        print(f"  Layer {i}: {norm:.4f}")
-    print(f"  ...")
-    print(f"  Mean norm: {norms.mean():.4f}")
-    print(f"  Max norm: {norms.max():.4f} (layer {norms.argmax().item()})")
-
-    # Save axis
-    torch.save(axis, output_path)
-    print(f"\nSaved axis to {output_path}")
+    print(
+        f"Saved axis to {output_file} "
+        f"(clean={axis_data['metadata']['clean_count']}, degen={axis_data['metadata']['degen_count']})"
+    )
 
 
 if __name__ == "__main__":

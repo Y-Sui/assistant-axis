@@ -59,17 +59,20 @@ Interactive notebooks for analysis and experimentation. See [`notebooks/README.m
 - **Steering and activation capping** on arbitrary prompts
 - **Transcript projection** to visualize persona trajectories
 
-## Computing the Axis
+## Computing a Hallucination Axis
 
-To compute the axis for a new model, run the 5-step pipeline:
+The current pipeline scripts in [`pipeline/`](pipeline/README.md) are a
+degeneration-only rewrite focused on **hallucination**.
 
-1. **Generate** model responses for 275 character roles
-2. **Extract** mean response activations
-3. **Score** role adherence with an LLM judge
-4. **Compute** per-role vectors from high-scoring responses
+The 5 steps are:
+
+1. **Generate** multi-turn hallucination trajectories
+2. **Extract** per-turn assistant activations
+3. **Score** hallucination severity with an LLM judge on `0..10`
+4. **Compute** clean/degenerated vectors using thresholds (`<=3` vs `>=7`)
 5. **Aggregate** into the final axis
 
-See [`pipeline/README.md`](pipeline/README.md) for detailed instructions.
+See [`pipeline/README.md`](pipeline/README.md) for commands and output formats.
 
 ## Transcripts
 
@@ -151,13 +154,11 @@ with build_capping_steerer(model, capping_config, config["capping_experiment"]):
     response = model.generate(...)
 ```
 
-## Degeneration Axes (Repetition, Verbosity, Refusal, Hallucination, Contradiction)
+## Degeneration Axes
 
-This repo also supports computing **degeneration axes** for multiple failure modes and
-mitigating them via activation steering/capping. The pipeline mirrors the Assistant Axis
-and lives in `pipeline/degeneration/`.
-
-See `pipeline/degeneration/README.md` for details.
+This repo is currently set up for a **hallucination-first** degeneration axis workflow.
+The active scripts live in [`pipeline/`](pipeline/README.md) and are optimized for quick
+findings rather than production robustness.
 
 ## API Reference
 

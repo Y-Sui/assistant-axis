@@ -65,7 +65,11 @@ class RateLimiter:
             self.tokens = 0
 
 
-def parse_judge_score(response_text: str) -> Optional[int]:
+def parse_judge_score(
+    response_text: str,
+    min_score: int = 0,
+    max_score: int = 3,
+) -> Optional[int]:
     """
     Parse the judge's response to extract the numerical score.
 
@@ -73,20 +77,20 @@ def parse_judge_score(response_text: str) -> Optional[int]:
         response_text: The judge model's response
 
     Returns:
-        Integer score between 0-3, or None if parsing fails
+        Integer score in [min_score, max_score], or None if parsing fails
     """
     if not response_text:
         return None
 
-    # Look for numbers in the response
-    numbers = re.findall(r'\b(\d+)\b', response_text.strip())
+    # Look for the first signed integer in the response
+    numbers = re.findall(r'(?<!\d)-?\d+', response_text.strip())
 
     if not numbers:
         return None
 
     try:
         score = int(numbers[0])
-        if 0 <= score <= 3:
+        if min_score <= score <= max_score:
             return score
         return None
     except ValueError:
