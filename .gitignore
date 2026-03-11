@@ -41,6 +41,7 @@ ENV/
 # Outputs
 outputs/
 *.parquet
+data/
 
 # OS
 .DS_Store
