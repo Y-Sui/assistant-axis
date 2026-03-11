@@ -38,6 +38,21 @@ MODEL_CONFIGS = {
         "capping_config": "qwen-3-32b/capping_config.pt",
         "capping_experiment": "layers_46:54-p0.25",
     },
+    "Qwen/Qwen3.5-35B-A3B": {
+        "target_layer": 20,
+        "total_layers": 40,
+        "short_name": "Qwen-35B-A3B",
+    },
+    "Qwen/Qwen3.5-27B": {
+        "target_layer": 32,
+        "total_layers": 64,
+        "short_name": "Qwen-27B",
+    },
+    "Qwen/Qwen3.5-9B": {
+        "target_layer": 16,
+        "total_layers": 32,
+        "short_name": "Qwen-9B",
+    },
     "meta-llama/Llama-3.3-70B-Instruct": {
         "target_layer": 40,
         "total_layers": 80,
