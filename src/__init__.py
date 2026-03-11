@@ -38,6 +38,8 @@ from .pca import (
     MeanScaler,
     L2MeanScaler,
 )
+from .trajectory import parse_trajectory
+from .contrastive_axis import compute_contrastive_axis
 
 __all__ = [
     # Models
@@ -64,4 +66,8 @@ __all__ = [
     "plot_variance_explained",
     "MeanScaler",
     "L2MeanScaler",
+    # Trajectory
+    "parse_trajectory",
+    # Contrastive axis
+    "compute_contrastive_axis",
 ]
