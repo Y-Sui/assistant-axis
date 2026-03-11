@@ -2,6 +2,8 @@
 # Launch vLLM server for Qwen-3-4B with OpenAI-compatible API
 set -euo pipefail
 
+export VLLM_ATTENTION_BACKEND=FLASH_ATTN
+
 MODEL="Qwen/Qwen3-4B"
 PORT=8000
 MAX_MODEL_LEN=32768

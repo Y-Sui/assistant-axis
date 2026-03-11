@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Launch vLLM server for Qwen-3.5-35B-A3B with OpenAI-compatible API
+# Launch vLLM server for Qwen-3.5-2B with OpenAI-compatible API
 set -euo pipefail
 
-MODEL="Qwen/Qwen3.5-35B-A3B"
+MODEL="Qwen/Qwen3.5-2B"
 PORT=8000
 MAX_MODEL_LEN=32768
 
@@ -15,6 +15,6 @@ vllm serve "${MODEL}" \
     --max-model-len "${MAX_MODEL_LEN}" \
     --dtype bfloat16 \
     --trust-remote-code \
-    --gpu-memory-utilization 0.90 \
+    --gpu-memory-utilization 0.3 \
     --reasoning-parser qwen3 \
     --language-model-only

@@ -1,0 +1,19 @@
+# mini-swe-agent config for Qwen-3.5-9B on SWE-bench
+
+model:
+  model_name: "hosted_vllm/Qwen/Qwen3.5-2B"
+  model_kwargs:
+    api_base: "http://localhost:8000/v1"
+    drop_params: true
+    temperature: 0.7
+  cost_tracking: "ignore_errors"
+  litellm_model_registry: "pipeline/configs/model_registry.json"
+
+agent:
+  step_limit: 250
+  cost_limit: 0
+
+environment:
+  cwd: "/testbed"
+  timeout: 60
+  environment_class: docker
