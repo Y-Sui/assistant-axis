@@ -4,7 +4,7 @@ Use ActivationSteering with capping intervention to mitigate drift
 by capping activations' projection onto the drift axis.
 
 Usage:
-    python pipeline/5_drift_steering.py [--drift-axis FILE] [--input FILE]
+    python pipeline/4_drift_steering.py [--drift-axis FILE]
 """
 
 import argparse

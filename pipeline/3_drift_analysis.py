@@ -4,7 +4,7 @@ Pools activations across trajectories, computes PCA per layer, and
 analyzes whether PC1 correlates with turn index (systematic drift).
 
 Usage:
-    python pipeline/4_drift_analysis.py [--input-dir DIR] [--output-dir DIR]
+    python pipeline/3_drift_analysis.py [--input-dir DIR] [--output-dir DIR]
 """
 
 import argparse

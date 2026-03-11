@@ -18,16 +18,16 @@ uv sync --extra dev
 
 ## Pipeline
 
-The experiment is a 6-step pipeline. Each step reads from the previous step's output.
+The experiment is a 5-step pipeline. Each step reads from the previous step's output.
 
 ```
-vLLM server → mini-swe-agent → .traj.json → parse → .jsonl → HF model replay → .pt activations → PCA → drift_axis.pt → steering
-     0              1                           2                    3                  4                      5
+vLLM server → mini-swe-agent → .traj.json → vLLM hidden state extraction → .pt activations → PCA → drift_axis.pt → steering
+     0              1                                    2                          3                      4
 ```
 
 ### Step 0: Start vLLM server
 
-Serves Qwen-3-4B locally with an OpenAI-compatible API.
+Serves Qwen-3-4B locally with an OpenAI-compatible API for trajectory collection.
 
 ```bash
 ./pipeline/0_vllm_server.sh
@@ -43,42 +43,32 @@ Runs mini-swe-agent on SWE-bench verified split. Each instance produces a `.traj
 
 Output: `data/drift/qwen3-4b/raw/*.traj.json`
 
-### Step 2: Parse trajectories
+### Step 2: Parse trajectories and extract activations
 
-Normalizes raw trajectory files into clean JSONL with `{instance_id, n_assistant_turns, conversation}`.
-
-```bash
-python pipeline/2_parse_trajectories.py
-```
-
-Output: `data/drift/qwen3-4b/parsed/trajectories.jsonl`
-
-### Step 3: Extract activations (incremental replay)
-
-For each trajectory with N assistant turns, performs N forward passes through the HuggingFace model. Pass k feeds the conversation up to turn k and mean-pools hidden states over the k-th assistant response at layers 26–35 (last 10 of 36).
+Parses raw `.traj.json` files, then for each trajectory with N assistant turns, extracts hidden states via `speculators.data_generation.VllmHiddenStatesGenerator`. Pass k feeds the conversation up to turn k and mean-pools hidden states over the k-th assistant response at layers 26–35 (last 10 of 36).
 
 ```bash
-python pipeline/3_drift_activations.py
+python pipeline/2_drift_activations.py
 ```
 
 Output: `data/drift/qwen3-4b/activations/*.pt` — tensors of shape `(N_turns, 10, 2560)`
 
-### Step 4: Drift analysis
+### Step 3: Drift analysis
 
 Pools activations across trajectories, runs PCA per layer, and tests whether PC1 correlates with turn index (Spearman correlation, linear regression). Produces drift curve plots, PCA scatters, and variance explained charts.
 
 ```bash
-python pipeline/4_drift_analysis.py
+python pipeline/3_drift_analysis.py
 ```
 
 Output: `data/drift/qwen3-4b/analysis/drift_axis.pt` and `data/drift/qwen3-4b/analysis/plots/*.html`
 
-### Step 5: Drift steering (future)
+### Step 4: Drift steering (future)
 
 Caps activations along the drift axis at early-turn thresholds (mean + 2σ from turns 0–4) using hook-based intervention during generation.
 
 ```bash
-python pipeline/5_drift_steering.py
+python pipeline/4_drift_steering.py
 ```
 
 ## Project structure
