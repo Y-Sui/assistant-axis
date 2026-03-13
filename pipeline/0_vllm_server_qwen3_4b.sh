@@ -18,4 +18,6 @@ vllm serve "${MODEL}" \
     --trust-remote-code \
     --gpu-memory-utilization 0.90 \
     --reasoning-parser qwen3 \
-    --language-model-only
+    --language-model-only \
+    --enable-auto-tool-choice \
+    --tool-call-parser qwen3_coder

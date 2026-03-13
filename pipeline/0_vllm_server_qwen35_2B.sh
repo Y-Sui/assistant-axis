@@ -4,10 +4,12 @@ set -euo pipefail
 
 MODEL="Qwen/Qwen3.5-2B"
 PORT=8000
-MAX_MODEL_LEN=32768
+MAX_MODEL_LEN=262144
 
 echo "Starting vLLM server for ${MODEL} on port ${PORT}..."
 echo "Max model length: ${MAX_MODEL_LEN}"
+
+# if using reasoning parser, ensure you call the api with "reasoning=true" in the body to enable thinking
 
 vllm serve "${MODEL}" \
     --port "${PORT}" \
@@ -17,4 +19,6 @@ vllm serve "${MODEL}" \
     --trust-remote-code \
     --gpu-memory-utilization 0.3 \
     --reasoning-parser qwen3 \
-    --language-model-only
+    --language-model-only \
+    --enable-auto-tool-choice \
+    --tool-call-parser qwen3_coder

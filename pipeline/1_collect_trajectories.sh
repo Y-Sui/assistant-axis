@@ -9,20 +9,31 @@
 #   - GNU Parallel installed: apt install parallel / brew install parallel
 #
 # Usage:
-#   ./pipeline/1_collect_trajectories.sh [WORKERS_PER_RUN] [PARALLEL_RUNS]
+#   ./pipeline/1_collect_trajectories.sh [WORKERS_PER_RUN] [PARALLEL_RUNS] [REDO_EXISTING]
+#   ./pipeline/1_collect_trajectories.sh 4 2 0
 #
 #   WORKERS_PER_RUN: mini-swe-agent concurrency within each run (default: 4)
 #   PARALLEL_RUNS:   number of runs to execute simultaneously (default: 4)
+#   REDO_EXISTING:   0 = skip completed instances (default), 1 = redo all instances
+#
+# Note: --slice 0:16 controls how many SWE-bench instances to run (first 16).
+#   Change it below to run more/fewer instances, e.g., 0:50 for 50, or remove for all.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-CONFIG="${SCRIPT_DIR}/configs/swebench_qwen4b.yaml"
+CONFIG="${SCRIPT_DIR}/configs/swebench_qwen35_2b.yaml"
 REGISTRY="${SCRIPT_DIR}/configs/model_registry.json"
-BASE_OUTPUT_DIR="${PROJECT_ROOT}/data/drift/qwen3-4b/raw"
+BASE_OUTPUT_DIR="${PROJECT_ROOT}/data/drift/qwen35_2b/raw"
 WORKERS_PER_RUN="${1:-4}"
 PARALLEL_RUNS="${2:-4}"
-NUM_RUNS=16
+REDO_EXISTING="${3:-0}"
+NUM_RUNS=4
+
+REDO_FLAG=""
+if [[ "${REDO_EXISTING}" == "1" ]]; then
+    REDO_FLAG="--redo-existing"
+fi
 
 if ! command -v parallel &>/dev/null; then
     echo "ERROR: GNU Parallel is required. Install with: apt install parallel"
@@ -31,10 +42,11 @@ fi
 
 export LITELLM_MODEL_REGISTRY_PATH="${REGISTRY}"
 export MSWEA_COST_TRACKING="ignore_errors"
-export CONFIG WORKERS_PER_RUN BASE_OUTPUT_DIR
+export CONFIG WORKERS_PER_RUN BASE_OUTPUT_DIR REDO_FLAG
 
 echo "Collecting trajectories: ${NUM_RUNS} runs"
 echo "  ${PARALLEL_RUNS} parallel runs x ${WORKERS_PER_RUN} workers each"
+echo "  redo_existing: ${REDO_EXISTING} ${REDO_FLAG:+(${REDO_FLAG})}"
 echo "Config: ${CONFIG}"
 echo "Output: ${BASE_OUTPUT_DIR}"
 
@@ -51,12 +63,13 @@ run_single() {
 
     echo "[${RUN_ID}] Starting..."
     mini-extra swebench \
-        -c "${CONFIG}" \
+        -c swebench.yaml -c "${CONFIG}" \
         -o "${OUTPUT_DIR}" \
         -w "${WORKERS_PER_RUN}" \
         --subset verified \
-        --split test
-
+        --split test \
+        --slice 0:16 \
+        ${REDO_FLAG}
     local N_FILES
     N_FILES=$(find "${OUTPUT_DIR}" -name "*.traj.json" 2>/dev/null | wc -l)
     echo "[${RUN_ID}] Done: ${N_FILES} trajectory files."
