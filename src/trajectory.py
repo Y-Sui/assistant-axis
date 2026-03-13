@@ -30,15 +30,24 @@ def parse_trajectory(traj_path: Path) -> dict | None:
     conversation = []
     for msg in messages:
         role = msg.get("role", "")
-        content = msg.get("content", "")
+        content = msg.get("content") or ""  # handle None values
+
+        # For assistant messages with tool_calls, the actual reasoning
+        # is often in reasoning_content while content is None
+        if role == "assistant" and not content:
+            reasoning = msg.get("reasoning_content") or ""
+            if not reasoning:
+                # Try provider_specific_fields.reasoning as fallback
+                psf = msg.get("provider_specific_fields") or {}
+                reasoning = psf.get("reasoning") or psf.get("reasoning_content") or ""
+            content = reasoning
 
         if role in ("system", "user", "assistant"):
             conversation.append({"role": role, "content": content})
         elif role == "tool":
             # Tool responses become user messages (observation)
             conversation.append({"role": "user", "content": content})
-        else:
-            conversation.append({"role": role, "content": content})
+        # Skip unknown roles (e.g. "exit")
 
     n_assistant_turns = sum(1 for m in conversation if m["role"] == "assistant")
 

@@ -27,6 +27,18 @@ class ConversationEncoder:
         self.tokenizer = tokenizer
         self.model_name = (model_name or getattr(tokenizer, "name_or_path", "")).lower()
 
+    def _apply_chat_template(self, conversation, tokenize=False, **kwargs):
+        """Wrapper around tokenizer.apply_chat_template that handles transformers 5.x.
+
+        Transformers 5.x returns BatchEncoding by default when tokenize=True.
+        This wrapper ensures a plain list of ints is returned for tokenize=True.
+        """
+        if tokenize:
+            kwargs.setdefault("return_dict", False)
+        return self.tokenizer.apply_chat_template(
+            conversation, tokenize=tokenize, **kwargs
+        )
+
     def _is_qwen(self) -> bool:
         """Check if this is a Qwen model."""
         return 'qwen' in self.model_name
@@ -63,7 +75,7 @@ class ConversationEncoder:
         if swap:
             # Swapped format for special use cases
             messages = [{"role": "user", "content": "Hello."}, {"role": "model", "content": conversation[0]["content"]}]
-            formatted_prompt = self.tokenizer.apply_chat_template(
+            formatted_prompt = self._apply_chat_template(
                 messages, tokenize=False, add_generation_prompt=True, **chat_kwargs
             )
             parts = formatted_prompt.rsplit('model', 1)
@@ -71,7 +83,7 @@ class ConversationEncoder:
                 formatted_prompt = 'user'.join(parts)
             return formatted_prompt
         else:
-            return self.tokenizer.apply_chat_template(
+            return self._apply_chat_template(
                 conversation, tokenize=False, add_generation_prompt=True, **chat_kwargs
             )
 
@@ -92,7 +104,7 @@ class ConversationEncoder:
         Returns:
             List of token IDs
         """
-        return self.tokenizer.apply_chat_template(
+        return self._apply_chat_template(
             conversation,
             tokenize=True,
             add_generation_prompt=add_generation_prompt,
@@ -142,7 +154,7 @@ class ConversationEncoder:
         enable_thinking = chat_kwargs.get('enable_thinking', False)
 
         # Get the full formatted conversation
-        full_formatted = self.tokenizer.apply_chat_template(
+        full_formatted = self._apply_chat_template(
             conversation, tokenize=False, add_generation_prompt=False, **chat_kwargs
         )
         full_tokens = self.tokenizer(full_formatted, add_special_tokens=False)
@@ -274,7 +286,7 @@ class ConversationEncoder:
 
             # Format and tokenize both versions
             if conversation_before:
-                before_formatted = self.tokenizer.apply_chat_template(
+                before_formatted = self._apply_chat_template(
                     conversation_before, tokenize=False, add_generation_prompt=True, **chat_kwargs
                 )
                 before_tokens = self.tokenizer(before_formatted, add_special_tokens=False)
@@ -282,7 +294,7 @@ class ConversationEncoder:
             else:
                 before_length = 0
 
-            including_formatted = self.tokenizer.apply_chat_template(
+            including_formatted = self._apply_chat_template(
                 conversation_including, tokenize=False, add_generation_prompt=False, **chat_kwargs
             )
             including_tokens = self.tokenizer(including_formatted, add_special_tokens=False)
@@ -348,7 +360,7 @@ class ConversationEncoder:
 
             # Format and tokenize both versions
             if conversation_before:
-                before_formatted = self.tokenizer.apply_chat_template(
+                before_formatted = self._apply_chat_template(
                     conversation_before, tokenize=False, add_generation_prompt=True, **chat_kwargs
                 )
                 before_tokens = self.tokenizer(before_formatted, add_special_tokens=False)
@@ -356,7 +368,7 @@ class ConversationEncoder:
             else:
                 before_length = 0
 
-            including_formatted = self.tokenizer.apply_chat_template(
+            including_formatted = self._apply_chat_template(
                 conversation_including, tokenize=False, add_generation_prompt=False, **chat_kwargs
             )
             including_tokens = self.tokenizer(including_formatted, add_special_tokens=False)
@@ -394,7 +406,7 @@ class ConversationEncoder:
             - spans: list of dicts with absolute [start, end) token spans for content per turn
         """
         # Tokenize the full conversation first
-        full_ids = self.tokenizer.apply_chat_template(
+        full_ids = self._apply_chat_template(
             conversation, tokenize=True, add_generation_prompt=False, **chat_kwargs
         )
 
@@ -421,12 +433,12 @@ class ConversationEncoder:
             # Standard approach for non-Qwen models
             # Calculate absolute start based on the empty message template
             msgs_empty_for_this = msgs_before + [{"role": role, "content": ""}]
-            ids_empty_full = self.tokenizer.apply_chat_template(
+            ids_empty_full = self._apply_chat_template(
                 msgs_empty_for_this, tokenize=True, add_generation_prompt=False, **chat_kwargs
             )
 
             # Find where the content appears in the full sequence
-            ids_full_for_this = self.tokenizer.apply_chat_template(
+            ids_full_for_this = self._apply_chat_template(
                 msgs_before + [{"role": role, "content": text}], tokenize=True, add_generation_prompt=False, **chat_kwargs
             )
 
@@ -767,7 +779,7 @@ class ConversationEncoder:
         if role == "assistant":
             # Find where content appears in the full tokenized conversation
             msgs_full = messages_before + [{"role": role, "content": content}]
-            ids_full = self.tokenizer.apply_chat_template(
+            ids_full = self._apply_chat_template(
                 msgs_full, tokenize=True, add_generation_prompt=False, **chat_kwargs
             )
 
@@ -778,7 +790,7 @@ class ConversationEncoder:
             if content_start != -1:
                 # Calculate offset from the beginning of the conversation
                 if messages_before:
-                    ids_before = self.tokenizer.apply_chat_template(
+                    ids_before = self._apply_chat_template(
                         messages_before, tokenize=True, add_generation_prompt=False, **chat_kwargs
                     )
                     prefix_len = len(ids_before)
@@ -804,15 +816,15 @@ class ConversationEncoder:
 
         # Handle empty messages_before case
         if messages_before:
-            ids_before = self.tokenizer.apply_chat_template(
+            ids_before = self._apply_chat_template(
                 messages_before, tokenize=True, add_generation_prompt=False, **chat_kwargs
             )
         else:
             ids_before = []
-        ids_empty = self.tokenizer.apply_chat_template(
+        ids_empty = self._apply_chat_template(
             msgs_empty, tokenize=True, add_generation_prompt=False, **chat_kwargs
         )
-        ids_full  = self.tokenizer.apply_chat_template(
+        ids_full  = self._apply_chat_template(
             msgs_full,  tokenize=True, add_generation_prompt=False, **chat_kwargs
         )
 

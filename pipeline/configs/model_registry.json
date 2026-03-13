@@ -33,5 +33,26 @@
     "output_cost_per_token": 0.0,
     "litellm_provider": "hosted_vllm",
     "mode": "chat"
+  },
+  "hosted_vllm/Qwen/Qwen3-8B": {
+    "max_tokens": 4096,
+    "input_cost_per_token": 0.0,
+    "output_cost_per_token": 0.0,
+    "litellm_provider": "hosted_vllm",
+    "mode": "chat"
+  },
+  "hosted_vllm/Qwen/Qwen3-14B": {
+    "max_tokens": 4096,
+    "input_cost_per_token": 0.0,
+    "output_cost_per_token": 0.0,
+    "litellm_provider": "hosted_vllm",
+    "mode": "chat"
+  },
+  "hosted_vllm/openai/gpt-oss-20B": {
+    "max_tokens": 4096,
+    "input_cost_per_token": 0.0,
+    "output_cost_per_token": 0.0,
+    "litellm_provider": "hosted_vllm",
+    "mode": "chat"
   }
 }

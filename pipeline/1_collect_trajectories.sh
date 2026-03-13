@@ -22,9 +22,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-CONFIG="${SCRIPT_DIR}/configs/swebench_qwen35_2b.yaml"
+CONFIG="${SCRIPT_DIR}/configs/swebench_qwen35_27b.yaml"
 REGISTRY="${SCRIPT_DIR}/configs/model_registry.json"
-BASE_OUTPUT_DIR="${PROJECT_ROOT}/data/drift/qwen35_2b/raw"
+BASE_OUTPUT_DIR="${PROJECT_ROOT}/data/drift/qwen35_27b/raw"
 WORKERS_PER_RUN="${1:-4}"
 PARALLEL_RUNS="${2:-4}"
 REDO_EXISTING="${3:-0}"

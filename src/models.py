@@ -31,6 +31,16 @@ MODEL_CONFIGS = {
         "total_layers": 36,
         "short_name": "Qwen-4B",
     },
+    "Qwen/Qwen3-8B": {
+        "target_layer": 18,
+        "total_layers": 36,
+        "short_name": "Qwen3-8B",
+    },
+    "Qwen/Qwen3-14B": {
+        "target_layer": 20,
+        "total_layers": 40,
+        "short_name": "Qwen3-14B",
+    },
     "Qwen/Qwen3-32B": {
         "target_layer": 32,
         "total_layers": 64,
@@ -48,10 +58,20 @@ MODEL_CONFIGS = {
         "total_layers": 64,
         "short_name": "Qwen-27B",
     },
+    "Qwen/Qwen3.5-2B": {
+        "target_layer": 12,
+        "total_layers": 24,
+        "short_name": "Qwen-2B",
+    },
     "Qwen/Qwen3.5-9B": {
         "target_layer": 16,
         "total_layers": 32,
         "short_name": "Qwen-9B",
+    },
+    "openai/gpt-oss-20B": {
+        "target_layer": 12,
+        "total_layers": 24,
+        "short_name": "GPT-OSS-20B",
     },
     "meta-llama/Llama-3.3-70B-Instruct": {
         "target_layer": 40,

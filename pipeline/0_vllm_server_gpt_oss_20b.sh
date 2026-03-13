@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Launch vLLM server for Qwen-3-4B with OpenAI-compatible API
+# Launch vLLM server for gpt-oss-20B with OpenAI-compatible API
+# No --reasoning-parser or --tool-call-parser needed: vLLM auto-enables
+# harmony parsing for reasoning and tool calls when model_type == "gpt_oss".
 set -euo pipefail
 
-MODEL="Qwen/Qwen3-4B"
+MODEL="openai/gpt-oss-20B"
 PORT=8000
 MAX_MODEL_LEN=131072
 
@@ -14,8 +16,4 @@ vllm serve "${MODEL}" \
     --max-model-len "${MAX_MODEL_LEN}" \
     --dtype bfloat16 \
     --trust-remote-code \
-    --gpu-memory-utilization 0.90 \
-    --reasoning-parser qwen3 \
-    --language-model-only \
-    --enable-auto-tool-choice \
-    --tool-call-parser qwen3_coder
+    --gpu-memory-utilization 0.90

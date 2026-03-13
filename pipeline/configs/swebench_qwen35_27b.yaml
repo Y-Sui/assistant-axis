@@ -6,6 +6,9 @@ model:
     api_base: "http://localhost:8000/v1"
     drop_params: true
     temperature: 0.7
+    extra_body:
+      chat_template_kwargs:
+        enable_thinking: true
   cost_tracking: "ignore_errors"
   litellm_model_registry: "pipeline/configs/model_registry.json"
 
